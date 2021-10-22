@@ -1,0 +1,334 @@
+<!doctype html5>
+<html>
+<head>
+	<title>Checkers</title>
+	<style>
+		body {
+			color: #222;
+			font-size: 1.5em;
+			text-align: center;
+		}
+		.title {
+			font-size: 2rem;
+		}
+		.turn {
+			font-size: 2rem;
+			text-transform: capitalize;
+		}
+		table {
+			margin: auto;
+			user-select: none;
+			font-size: 10vmin;
+			line-height: 0px;
+			text-align: center;
+		}
+		td {
+			width: 10vmin;
+			height: 10vmin;
+		}
+		.off {
+			background-color: #955;
+		}
+		.on {
+			background-color: #ccc;
+		}
+		.hlt {
+			background-color: #cfc;
+		}
+		.red {
+			color: #e22;
+		}
+	</style>
+	<script>
+		var squares = [];
+		var turn = 'black';
+		var selected = false;
+		var jumping = false;
+		var needToJump = false;
+	
+		window.addEventListener('DOMContentLoaded', (event) => {
+			squares = Array.from(document.querySelectorAll(".on"));
+			
+			for (let i = 0; i < 12; i++) {
+				squares[i].innerHTML = "&#9920;";
+			}
+			
+			for (let i = 20; i < 32; i++) {
+				squares[i].innerHTML = "&#9922;";
+			}
+		});
+		
+		function removeSelection() {
+			for (let i = 0; i < 32; i++) {
+				squares[i].classList.remove("hlt");
+			}
+		}
+	
+		function cl(n) {
+			let clickedSquare = squares[n-1];
+			var j;
+			
+			setNeedToJump();
+			//document.querySelector('h2').innerHTML = n-1;
+			if (selected && (j = isValidMove(clickedSquare, document.querySelector('.hlt')))) {
+				var selectedSquare = document.querySelector('.hlt');
+				
+				clickedSquare.innerHTML = selectedSquare.innerHTML;
+				selectedSquare.innerHTML = "";
+				
+				if (j != true) {
+                    j.innerHTML = "";
+                    if (canJump(clickedSquare)) {
+                        jumping = true;
+                        removeSelection();
+                        clickedSquare.classList.add("hlt");
+                    } else {
+                        selected = false;
+                        jumping = false;
+                    }
+                } else {
+				    selected = false;
+				    jumping = false;
+				}
+				
+				
+				checkKings();
+				if (!jumping) {
+					switchTurn();
+					removeSelection();
+					setNeedToJump();
+				}
+			} else if (!jumping) {
+				removeSelection();
+				
+				if (clickedSquare.innerHTML == "") {
+					selected = false;
+				} else {
+					clickedSquare.classList.add("hlt");
+					selected = true;
+				}
+			}
+		}
+		
+		function switchTurn() {
+			if (turn == 'white') {
+				turn = 'black';
+			} else {
+				turn = 'white';
+			}
+			document.querySelector('.turn').innerHTML = turn + "'s turn"
+		}
+		
+		function isValidMove(to, from) {
+			if (to.innerHTML != "") {return false;}
+			if (isBlack(from) && turn != 'black') {return false;}
+			if (isWhite(from) && turn != 'white') {return false;}
+			
+			var canMoveNormally = !(jumping || needToJump);
+			
+			if (isBlack(from) || isKing(from)) {
+				var toN = getSquareNumber(to);
+				var fromN = getSquareNumber(from);
+				// regular moves
+				if((getDirection(fromN, 'up-right') == toN ||
+					getDirection(fromN, 'up-left')  == toN) && canMoveNormally) {return true;}
+				// jumps
+				var jump = canJumpUp(from, fromN, toN);
+				if (jump) {return jump;}
+			}
+			if (isWhite(from) || isKing(from)) {
+				var toN = getSquareNumber(to);
+				var fromN = getSquareNumber(from);
+				
+				if((getDirection(fromN, 'down-right') == toN ||
+					getDirection(fromN, 'down-left')  == toN) && canMoveNormally) {return true;}
+				// jumps
+				var jump = canJumpDown(from, fromN, toN);
+				if (jump) {return jump;}
+			}
+			return false;
+		}
+		
+		function canJump(from) {
+		    for (var i = 0; i < 32; i++) {
+				console.log(from, squares[i]);
+		        var vm = isValidMove(squares[i], from);
+		        if (vm != false && vm != true) {return true;}
+		    }
+		    return false;
+		}
+		
+		function canTeamJump(team) {
+			var oldNTJ = needToJump;
+			needToJump = false;
+			var isTeam = (team == 'black') ? isBlack : isWhite;
+			for (var i = 0; i < 32; i++) {
+				if (isTeam(squares[i]) && canJump(squares[i])) {
+					needToJump = oldNTJ;
+					return true;
+				}
+			}
+			needToJump = oldNTJ;
+			return false;
+		}
+		
+		function setNeedToJump() {
+			if (canTeamJump(turn)) {
+				needToJump = true;
+				document.querySelector('.red').innerHTML = "Mandatory Jump";
+				document.querySelector('.after').innerHTML = "for " + turn;
+			} else {
+				needToJump = false;
+				document.querySelector('.red').innerHTML = "";		
+				document.querySelector('.after').innerHTML = "No Jumps";
+			}
+		}
+		
+		function canJumpUp(from, fromN, toN) {
+			if (getDirection(getDirection(fromN, "up-right"), "up-right") == toN &&
+				isEnemy(from, squares[getDirection(fromN, "up-right")]))
+				{return squares[getDirection(fromN, "up-right")];}
+			if (getDirection(getDirection(fromN, "up-left"), "up-left") == toN &&
+				isEnemy(from, squares[getDirection(fromN, "up-left")]))
+				{return squares[getDirection(fromN, "up-left")];}
+			return false;
+		}
+
+		function canJumpDown(from, fromN, toN) {
+			if (getDirection(getDirection(fromN, "down-right"), "down-right") == toN &&
+				isEnemy(from, squares[getDirection(fromN, "down-right")]))
+				{return squares[getDirection(fromN, "down-right")];}
+			if (getDirection(getDirection(fromN, "down-left"), "down-left") == toN &&
+				isEnemy(from, squares[getDirection(fromN, "down-left")]))
+				{return squares[getDirection(fromN, "down-left")];}
+			return false;
+		}
+		
+		function isBlack(p) {
+			if (p) {
+				var t = p.innerHTML.codePointAt(0);
+				return t == 9922 || t == 9923;
+			} else {
+				return false;
+			}
+		}
+		
+		function isWhite(p) {
+			if (p) {
+				var t = p.innerHTML.codePointAt(0);
+				return t == 9920 || t == 9921;
+			} else {
+				return false;
+			}
+		}
+		
+		function isEnemy(you, other) {
+			if (isBlack(you)) {return isWhite(other);}
+			if (isWhite(you)) {return isBlack(other);}
+			return false;
+		}
+		
+		function isKing(p) {
+			if (p) {
+				t = p.innerHTML.codePointAt(0);
+				return t == 9921 || t == 9923;
+			} else {
+				return false;
+			}
+		}
+		
+		function getSquareNumber(s) {
+			var n = squares.findIndex(e => e == s);
+			return n;
+		}
+		
+		function toCart(n) {
+			var y = Math.floor(n/4);
+			var x = n % 4 * 2 + 1 - y % 2;
+			return [x, y];
+		}
+		
+		function fromCart(x, y) {
+			if (x > 7 || x < 0) {return -1;}
+			if (y > 7 || y < 0) {return -1;}
+			return y * 4 + (x + y % 2 - 1) / 2;
+		}
+		
+		function getDirection(n, direction) {
+			var xy = toCart(n);
+			var x = xy[0];
+			var y = xy[1];
+			if (direction == "up-right")   {return fromCart(x + 1, y - 1);}
+			if (direction == "up-left")    {return fromCart(x - 1, y - 1);}
+			if (direction == "down-right") {return fromCart(x + 1, y + 1);}
+			if (direction == "down-left")  {return fromCart(x - 1, y + 1);}
+		}
+		
+		function checkKings() {
+			for (let i = 0; i < 4; i++) {
+				if (isBlack(squares[i])) {squares[i].innerHTML = "&#9923;";}
+			}
+			for (let i = 28; i < 32; i++) {
+				if (isWhite(squares[i])) {squares[i].innerHTML = "&#9921;";}
+			}
+		}
+	</script>
+</head>
+<body>
+<span class="title">Checkers &middot;
+<span class="turn">Black's Turn</span></span> <br>
+<span class="red"></span>
+<span class="after">No Jumps</span>
+<table>
+	<tr>
+		<td class="off"></td><td class="on" onClick="cl(1);"></td>
+		<td class="off"></td><td class="on" onClick="cl(2);"></td>
+		<td class="off"></td><td class="on" onClick="cl(3);"></td>
+		<td class="off"></td><td class="on" onClick="cl(4);"></td>
+	</tr>
+	<tr>
+		<td class="on" onClick="cl(5);"></td><td class="off"></td>
+		<td class="on" onClick="cl(6);"></td><td class="off"></td>
+		<td class="on" onClick="cl(7);"></td><td class="off"></td>
+		<td class="on" onClick="cl(8);"></td><td class="off"></td>
+	</tr>
+	<tr>
+		<td class="off"></td><td class="on" onClick="cl(9);"></td>
+		<td class="off"></td><td class="on" onClick="cl(10);"></td>
+		<td class="off"></td><td class="on" onClick="cl(11);"></td>
+		<td class="off"></td><td class="on" onClick="cl(12);"></td>
+	</tr>
+	<tr>
+		</td><td class="on" onClick="cl(13);"></td><td class="off">
+		</td><td class="on" onClick="cl(14);"></td><td class="off">
+		</td><td class="on" onClick="cl(15);"></td><td class="off">
+		</td><td class="on" onClick="cl(16);"></td><td class="off">
+	</tr>
+		<tr>
+		<td class="off"></td><td class="on" onClick="cl(17);"></td>
+		<td class="off"></td><td class="on" onClick="cl(18);"></td>
+		<td class="off"></td><td class="on" onClick="cl(19);"></td>
+		<td class="off"></td><td class="on" onClick="cl(20);"></td>
+	</tr>
+	<tr>
+		</td><td class="on" onClick="cl(21);"></td><td class="off">
+		</td><td class="on" onClick="cl(22);"></td><td class="off">
+		</td><td class="on" onClick="cl(23);"></td><td class="off">
+		</td><td class="on" onClick="cl(24);"></td><td class="off">
+	</tr>
+	<tr>
+		<td class="off"></td><td class="on" onClick="cl(25);"></td>
+		<td class="off"></td><td class="on" onClick="cl(26);"></td>
+		<td class="off"></td><td class="on" onClick="cl(27);"></td>
+		<td class="off"></td><td class="on" onClick="cl(28);"></td>
+	</tr>
+	<tr>
+		</td><td class="on" onClick="cl(29);"></td><td class="off">
+		</td><td class="on" onClick="cl(30);"></td><td class="off">
+		</td><td class="on" onClick="cl(31);"></td><td class="off">
+		</td><td class="on" onClick="cl(32);"></td><td class="off">
+	</tr>
+</table>
+
+</body>
+</html>
